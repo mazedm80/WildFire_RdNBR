@@ -1,0 +1,10 @@
+---
+title: "WildFire dNBR vs RdNBR"
+author: "Mir Mazedur Rahaman"
+date: "2/7/2021"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
