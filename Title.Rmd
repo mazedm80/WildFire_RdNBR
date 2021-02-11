@@ -2,13 +2,7 @@
 title: ' Lionshead WildFire and compariosn between dNBR vs RdNBR'
 author: "Mir Mazedur Rahaman"
 date: "2/7/2021"
-output:
-  html_document:
-    toc: no
-    df_print: paged
-  word_document:
-    toc: no
-    highlight: default
+output: github_document
 objectives:
 - Pre Processing of Landsat images of Pre fire and Post fire.
 - Calculating pre and post NBR and dNBR.
@@ -210,7 +204,7 @@ writeRaster(rdnbr_reclass, filename = "output/RdNBR_Reclassified.tif", format="G
 ```
 
 # Result analysis, Graph and Chart
-```{r result, echo=TRUE, warning=FALSE, cache=TRUE, results='markup'}
+```{r result, echo=TRUE, warning=FALSE, cache=TRUE, results='markup', eval=FALSE}
 # Area of each Burn Severity class for dNBR
 Area_dNBR <- raster::extract(dnbr_reclass, AOI_reproj,df = TRUE)
 Area_dNBR %>%
@@ -229,8 +223,8 @@ legend('topright',
        xpd = TRUE, bty='n')
 dev.off()
 # Area of each Burn Severity class for RdNBR
-Area_dNBR <- raster::extract(rdnbr_reclass, AOI_reproj,df = TRUE)
-Area_dNBR %>%
+Area_RdNBR <- raster::extract(rdnbr_reclass, AOI_reproj,df = TRUE)
+Area_RdNBR %>%
   group_by(layer) %>%
   summarize(count = n(), area_meters = n() * (30 * 30))
 
@@ -238,7 +232,7 @@ Area_dNBR %>%
 jpeg('output/Prop_RdNBR.jpg',width = 1300, 
      height = 700, res=200, units = "px", quality = 100, pointsize=10)
 par(mar=c(4,8,4,4))
-pie(table(RdNBR), labels = paste(round(prop.table(table(RdNBR))*100), "%", sep = ""), col = col_val, main = "Proportions of dNBR Classes")
+pie(table(Area_RdNBR), labels = paste(round(prop.table(table(Area_RdNBR))*100), "%", sep = ""), col = col_val, main = "Proportions of dNBR Classes")
 legend('topright',
        legend = legend_val ,fill=col_val,
        inset=c(-0.05,0),
