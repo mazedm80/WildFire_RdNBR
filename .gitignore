@@ -41,3 +41,4 @@ vignettes/*.pdf
 # Ignore data and output Folder
 /data/
 /output/
+/Title_cache
