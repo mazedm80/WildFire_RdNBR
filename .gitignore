@@ -42,5 +42,5 @@ vignettes/*.docx
 # Ignore data and output Folder and some files
 /data/
 /output/
-*_Title/
+*Title/
 *.docx
