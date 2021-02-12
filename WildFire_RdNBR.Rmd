@@ -2,14 +2,7 @@
 title: ' Lionshead WildFire Bunr Severity and compariosn between dNBR vs RdNBR'
 author: "Mir Mazedur Rahaman"
 date: "2/7/2021"
-output: github_document
-objectives:
-- Pre Processing of Landsat images of Pre fire and Post fire.
-- Calculating pre and post NBR and dNBR.
-- Classification of dNBR.
-- Calculating RdNBR
-- Classification of RdNBR
-- Compare dNBR and RdNBR
+output: word_document
 editor_options:
   chunk_output_type: inline
 ---
