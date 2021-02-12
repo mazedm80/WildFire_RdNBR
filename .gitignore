@@ -39,7 +39,8 @@ vignettes/*.docx
 # R Environment Variables
 .Renviron
 
-# Ignore data and output Folder
+# Ignore data and output Folder and some files
 /data/
 /output/
-/Title_files/
+*_Title/
+*.docx
