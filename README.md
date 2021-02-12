@@ -20,4 +20,4 @@ This script is currently used for my Remote Sensing III masters course. Since th
 * Due to big files the **/output** folder is also ignored
 
 ## Library
-To run the Rmd file 'rmarkdown' packeg is required. To run the WildFire_RdNBR.Rmd script the `raster` `RStoolbox` `rgdal` and few other packages are required which is included in Script.
+To run the Rmd file `rmarkdown` package is required. To run the WildFire_RdNBR.Rmd script the `raster` `RStoolbox` `rgdal` and few other packages are required which is included in Script.
