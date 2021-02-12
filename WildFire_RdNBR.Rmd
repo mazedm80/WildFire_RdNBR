@@ -1,0 +1,243 @@
+---
+title: ' Lionshead WildFire Bunr Severity and compariosn between dNBR vs RdNBR'
+author: "Mir Mazedur Rahaman"
+date: "2/7/2021"
+output: github_document
+objectives:
+- Pre Processing of Landsat images of Pre fire and Post fire.
+- Calculating pre and post NBR and dNBR.
+- Classification of dNBR.
+- Calculating RdNBR
+- Classification of RdNBR
+- Compare dNBR and RdNBR
+editor_options:
+  chunk_output_type: inline
+---
+
+# Loading required package
+```{r load-libraries, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+library(raster)
+library(RStoolbox)
+library(rgdal)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(dplyr)
+library(viridis)
+library(rasterVis)
+library(devtools)
+```
+
+# Loading the MetaData and Raster file
+```{r load-data, echo=TRUE, results='hide', cache=TRUE, eval=FALSE}
+setwd("C:/FIT/3rd Semester/RS-3/Code/WildFire_RdNBR/")
+AOI <- readOGR("data/AOI.shp")
+# Pre fire Raster and metaData
+metaData_pre <- readMeta("data/LC08_L1TP_045029_20200901_20200906_01_T1/LC08_L1TP_045029_20200901_20200906_01_T1_MTL.txt")
+metaStack_pre <- stackMeta(metaData_pre)
+plot(metaStack_pre)
+# Post fire Raster and metaData
+metaData_post <- readMeta("data/LC08_L1TP_045029_20201003_20201015_01_T1/LC08_L1TP_045029_20201003_20201015_01_T1_MTL.txt")
+metaStack_post <- stackMeta(metaData_post)
+plot(metaStack_post)
+```
+
+# Image Pre Processing
+```{r image-preprocessing, echo=TRUE, cache=TRUE, results='markup', eval=FALSE}
+# DOS Correction pre fire images and saving stack raster as geoTiff
+LS8_pre_dos <- radCor(metaStack_pre, metaData_pre, method = "dos", bandSet = c(2,3,4,5,7))
+writeRaster(LS8_pre_dos, filename="output/LS8_pre_dos.tif", bandorder='BIL', overwrite=TRUE)
+# DOS Correction post fire images and saving stack raster as geoTiff
+LS8_post_dos <- radCor(metaStack_post, metaData_post, method = "dos", bandSet = c(2,3,4,5,7))
+writeRaster(LS8_post_dos, filename="output/LS8_post_dos.tif", bandorder='BIL', overwrite=TRUE)
+# Load the processed raster
+LS8_pre <- brick("output/LS8_pre_dos.tif")
+LS8_post <- brick("output/LS8_post_dos.tif")
+# Plotting the RGB images of Pre fire and Post fire area
+plotRGB(LS8_pre_dos, r=3, g=2, b=1, stretch="lin")
+plotRGB(LS8_post_dos, r=3, g=2, b=1, stretch="lin")
+```
+
+# Calculating pre and post NBR and dNBR
+```{r pre-post-NBR, echo=TRUE, cache=TRUE, results='markup', eval=FALSE}
+# Function for NBR calculation
+nbr <- function(img){
+  br <- (img[[4]]-img[[5]])/(img[[4]]+img[[5]])
+  return(br)
+}
+# set the new projection and crop by the extent
+crs <- projection(LS8_pre)
+crs
+AOI_reproj <- spTransform(AOI,crs)
+# Calculating pre fire NBR
+nbr_LS8_pre <- calc(LS8_pre, fun = nbr)
+# Crop by the extent
+nbr_LS8_pre_crop <- crop(nbr_LS8_pre,extent(AOI_reproj))
+nbr_LS8_pre_crop <- mask(nbr_LS8_pre_crop, AOI_reproj)
+# Calculating post fire NBR
+nbr_LS8_post <- calc(LS8_post, fun = nbr)
+nbr_LS8_post_crop <- crop(nbr_LS8_post,extent(AOI_reproj))
+nbr_LS8_post_crop <- mask(nbr_LS8_post_crop, AOI_reproj)
+# dNBR
+dnbr <- (nbr_LS8_pre_crop - nbr_LS8_post_crop)
+# Plot the dNBR raster and save as jpeg
+jpeg('output/dNBR.jpg',width = 1000, 
+     height = 700, res=200, units = "px", quality = 100, pointsize=10)
+par(mar=c(4,8,4,4))
+plot(dnbr, col = rev(terrain.colors(10)), main = 'dNBR')
+dev.off()
+# Saving the dNBR as tif
+writeRaster(dnbr, filename = "output/dNBR.tif", format="GTiff", overwrite=T)
+```
+
+# Calculating RdNBR
+```{r RdNBR, echo=TRUE, cache=TRUE, results='markup', eval=FALSE}
+# RdNBR
+rdnbr <- (nbr_LS8_pre_crop - nbr_LS8_post_crop)/sqrt(abs(nbr_LS8_pre_crop))
+# Rescaling the min and max
+min <- -2
+max <- 2
+rdnbr[rdnbr <= min] <- NA
+rdnbr[rdnbr >= max] <- NA
+# Plot the RdNBR raster and save as jpeg
+jpeg('output/RdNBR.jpg',width = 1000, 
+     height = 700, res=200, units = "px", quality = 100, pointsize=10)
+par(mar=c(4,8,4,4))
+plot(rdnbr, col = rev(terrain.colors(10)), main = 'RdNBR')
+dev.off()
+# Saving the RdNBR as tif
+writeRaster(rdnbr, filename = "output/RdNBR.tif", format="GTiff", overwrite=T)
+```
+
+# Classification of dNBR according to CBI threshold
+```{r dnbr-classification, echo=TRUE, warning=FALSE, cache=TRUE, results='markup', eval=FALSE}
+# Sets the ranges that will be used to classify dNBR information about the ranges used
+reclass_df <- c(-Inf, -0.5, 0, # NA values
+                -0.5, -0.251, 1, # Enhanced Regrowth, High
+                -0.251, -0.101, 2, # Enhanced Regrowth, Low
+                -0.101, 0.099, 3, # Unburned
+                0.099, 0.269, 4, # Low-severity
+                0.269, 0.439, 5, # Moderate-low Severity
+                0.439, 0.659, 6, # Moderate-High Severity
+                0.659, 1.300, 7, # High-severity
+                1.300, +Inf, 0) # NA values
+# Sets a classification matrix
+reclass_m <- matrix(reclass_df, ncol=3, byrow=TRUE)
+# Classification matrix is used to classify dNBR_scaled
+dnbr_reclass <- reclassify(dnbr, reclass_m, right = NA)
+# Build the legend for the burn severity map
+legend_val <- c("NA values",
+                "Enhanced Regrowth, High",
+                "Enhanced Regrowth, Low",
+                "Unburned",
+                "Low-severity",
+                "Moderate-low Severity",
+                "Moderate-High Severity",
+                "High-severity"
+                )
+# Setting the colors for the severity map
+col_val <-  viridis(8, option = "A")
+# Plots the burn severity map
+jpeg('output/dNBR_Reclass.jpg',width = 1300, 
+     height = 700, res=200, units = "px", quality = 100, pointsize=10)
+par(mar=c(4,8,4,4))
+plot(dnbr_reclass,
+     col = col_val,
+     axes = FALSE,
+     box = FALSE,
+     legend = FALSE,
+     main = "Burn Severity Map of Lionshead from dNBR")
+legend('topright',
+       legend = legend_val ,fill=col_val,
+       inset=c(-0.25,0), pt.cex=0.7,cex=0.7,
+       xpd = TRUE, bty='n')
+dev.off()
+# Saving the dNBR as tif
+writeRaster(dnbr_reclass, filename = "output/dNBR_Reclassified.tif", format="GTiff", overwrite=TRUE)
+```
+
+# Classification of RdNBR according to CBI threshold
+```{r rdnbr-classification, echo=TRUE, warning=FALSE, cache=TRUE, results='markup', eval=FALSE}
+# Sets the ranges that will be used to classify dNBR information about the ranges used
+reclass_df <- c(-Inf, -0.5, 0, # NA values
+                -0.5, -0.251, 1, # Enhanced Regrowth, High
+                -0.251, -0.101, 2, # Enhanced Regrowth, Low
+                -0.101, 0.099, 3, # Unburned
+                0.099, 0.269, 4, # Low-severity
+                0.269, 0.439, 5, # Moderate-low Severity
+                0.439, 0.659, 6, # Moderate-High Severity
+                0.659, 1.300, 7, # High-severity
+                1.300, +Inf, 0) # NA values
+# Sets a classification matrix
+reclass_m <- matrix(reclass_df, ncol=3, byrow=TRUE)
+# Classification matrix is used to classify RdNBR_scaled
+rdnbr_reclass <- reclassify(rdnbr, reclass_m, right = NA)
+# Build the legend for the burn severity map
+legend_val <- c("NA values",
+                "Enhanced Regrowth, High",
+                "Enhanced Regrowth, Low",
+                "Unburned",
+                "Low-severity",
+                "Moderate-low Severity",
+                "Moderate-High Severity",
+                "High-severity"
+                )
+# Setting the colors for the severity map
+col_val <-  viridis(8, option = "A")
+# Plots the burn severity map
+jpeg('output/RdNBR_Reclass.jpg',width = 1300, 
+     height = 700, res=200, units = "px", quality = 100, pointsize=10)
+par(mar=c(4,8,4,4))
+plot(rdnbr_reclass,
+     col = col_val,
+     axes = FALSE,
+     box = FALSE,
+     legend = FALSE,
+     main = "Burn Severity Map of Lionshead from RdNBR")
+legend('topright',
+       legend = legend_val ,fill=col_val,
+       inset=c(-0.25,0), pt.cex=0.7,cex=0.7,
+       xpd = TRUE, bty='n')
+dev.off()
+# Saving the dNBR as tif
+writeRaster(rdnbr_reclass, filename = "output/RdNBR_Reclassified.tif", format="GTiff", overwrite=TRUE)
+```
+
+# Result analysis, Graph and Chart
+```{r result, echo=TRUE, warning=FALSE, cache=TRUE, results='markup', eval=FALSE}
+# Area of each Burn Severity class for dNBR
+Area_dNBR <- raster::extract(dnbr_reclass, AOI_reproj,df = TRUE)
+Area_dNBR %>%
+  group_by(layer) %>%
+  summarize(count = n(), area_meters = n() * (30 * 30))
+
+# Pie chart of dNBR class and its Proportions
+jpeg('output/Prop_dNBR.jpg',width = 1300, 
+     height = 700, res=200, units = "px", quality = 100, pointsize=10)
+par(mar=c(4,8,4,4))
+pie(table(Area_dNBR), labels = paste(round(prop.table(table(Area_dNBR))*100), "%", sep = ""), col = col_val, main = "Proportions of dNBR Classes")
+legend('topright',
+       legend = legend_val ,fill=col_val,
+       inset=c(-0.05,0),
+        pt.cex=0.7,cex=0.7,
+       xpd = TRUE, bty='n')
+dev.off()
+# Area of each Burn Severity class for RdNBR
+Area_RdNBR <- raster::extract(rdnbr_reclass, AOI_reproj,df = TRUE)
+Area_RdNBR %>%
+  group_by(layer) %>%
+  summarize(count = n(), area_meters = n() * (30 * 30))
+
+# Pie chart of RdNBR class and its Proportions
+jpeg('output/Prop_RdNBR.jpg',width = 1300, 
+     height = 700, res=200, units = "px", quality = 100, pointsize=10)
+par(mar=c(4,8,4,4))
+pie(table(Area_RdNBR), labels = paste(round(prop.table(table(Area_RdNBR))*100), "%", sep = ""), col = col_val, main = "Proportions of RdNBR Classes")
+legend('topright',
+       legend = legend_val ,fill=col_val,
+       inset=c(-0.05,0),
+        pt.cex=0.7,cex=0.7,
+       xpd = TRUE, bty='n')
+dev.off()
+```
+
